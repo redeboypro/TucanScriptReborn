@@ -1,6 +1,6 @@
 #include "TSVirtualMachine.h"
 
-TSStack::TSStack (ULONG_PTR size) : m_End(NULL) {
+TSStack::TSStack (ULONG_PTR size) : m_End(NULL), m_Size(size) {
 	m_Data = new TSValue[size];
 }
 
@@ -18,17 +18,8 @@ TSValue TSStack::Pop () {
 	return m_Data[m_End];
 }
 
-void TSManagedMemory::Free () {
-	if (m_Size > 1) { 
-		delete[] m_Memory; 
-	}
-	else {
-		delete m_Memory; 
-	}
-}
-
-TSVirtualMachine::TSVirtualMachine (ULONG_PTR stackSize, TSASM asmSet) : 
-	m_Stack(stackSize), m_ASM(std::move(asmSet)) {}
+TSVirtualMachine::TSVirtualMachine (ULONG_PTR stackSize, TSBSS bss, TSASM asm_) :
+	m_Stack(stackSize), m_BSS (std::move (bss)), m_ASM (std::move (asm_)) {}
 
 TSVirtualMachine::~TSVirtualMachine () {
 	m_Allocator.FreeRoot ();
@@ -38,6 +29,13 @@ TSVirtualMachine::~TSVirtualMachine () {
 TSAllocator::TSAllocator () : m_Begin (nullptr), m_End (nullptr) {}
 
 TSManagedMemory* TSAllocator::Alloc (TSValue* memory, ULONG_PTR size) {
+	for (INT iValue = 0; iValue < size; iValue++) {
+		auto& value = memory;
+		if (value->m_Type == MANAGED_T) {
+			value->m_Data.m_ManagedPtr->m_RefCount++;
+		}
+	}
+
 	auto* allocated = new TSManagedMemory {
 		.m_Memory = memory,
 		.m_Size = size,
@@ -62,7 +60,13 @@ void TSAllocator::Free (TSManagedMemory* ptr) {
 	auto* previousPtr = ptr->m_Previous;
 	auto* nextPtr = ptr->m_Next;
 
-	ptr->Free ();
+	for (INT iValue = 0; iValue < ptr->m_Size; ++iValue) {
+		auto& value = ptr->m_Memory[iValue];
+		if (value.m_Type == MANAGED_T) {
+			RemoveRef (value.m_Data.m_ManagedPtr);
+		}
+	}
+	delete[] ptr->m_Memory;
 
 	if (previousPtr) {
 		previousPtr->m_Next = nextPtr;
@@ -81,6 +85,12 @@ void TSAllocator::Free (TSManagedMemory* ptr) {
 	delete ptr;
 }
 
+void TSAllocator::RemoveRef (TSManagedMemory* ptr) {
+	if ((--ptr->m_RefCount) == NULL) {
+		Free (ptr);
+	}
+}
+
 void TSAllocator::FreeRoot () {
 
 	while (m_Begin) {
@@ -90,6 +100,155 @@ void TSAllocator::FreeRoot () {
 	}
 }
 
-void TSVirtualMachine::Run () {
+void TSVirtualMachine::Run (INT entryPoint) {
+	for (INT iInst = entryPoint; iInst < m_ASM.m_Size; ++iInst) {
+		auto& instruction = m_ASM.m_Instructions[iInst];
+		switch (instruction.m_Operation) {
+			case PUSH: {
+				m_Stack.Push (instruction.m_Value);
+			}
+			case POP: {
+				m_Stack.Pop ();
+			}
+			case JMP: {
+				auto instructionValue = instruction.m_Value;
+				if (instructionValue.m_Type == INT32_T) {
+					iInst = instructionValue.m_Data.m_I32;
+				}
+				else {
+					LOGINSTERR ("JMP", INVALIDINSTRUCTIONTYPE);
+					Free ();
+					return;
+				}
+			}
+			case JMPC: {
+				auto instructionValue = instruction.m_Value;
+				if (instructionValue.m_Type == INT32_T) {
+					auto popped = m_Stack.Pop ();
+					if ((popped.m_Type == BYTE_T  && popped.m_Data.m_UC) ||
+						(popped.m_Type == CHAR_T  && popped.m_Data.m_C)  || 
+						(popped.m_Type == INT32_T && popped.m_Data.m_I32)) {
+						iInst = instructionValue.m_Data.m_I32;
+					}
+				}
+				else {
+					LOGINSTERR ("JMPC", INVALIDINSTRUCTIONTYPE);
+					Free ();
+					return;
+				}
+			}
+			case MEMALLOC: {
+				ULONG_PTR size = instruction.m_Value.m_Data.m_I32;
+				auto* memoryValues = new TSValue[size];
 
+				for (INT iValue = 0; iValue < size; ++iValue) {
+					memoryValues[iValue] = m_Stack.Pop ();
+				}
+
+				m_Stack.Push (TSValue {
+					.m_Type = MANAGED_T,
+					.m_Data = 
+						TSData {
+							.m_ManagedPtr = m_Allocator.Alloc(memoryValues, size)
+						}
+				});
+			}
+			case MEMDEALLOC: {
+				auto poppedValue = m_Stack.Pop ();
+
+				if (poppedValue.m_Type != VAR_T) {
+					LOGINSTERR ("MEMDEALLOC", INVALIDSTACKVALUETYPE);
+					Free ();
+					return;
+				}
+
+				auto* variable = &m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+
+				if (variable->m_Type == MANAGED_T) {
+					m_Allocator.Free (variable->m_Data.m_ManagedPtr);
+				}
+				else {
+					variable->m_Data.m_U64 = NULL;
+				}
+			}
+			case MEMCPY: {
+				auto src = m_Stack.Pop ();
+				auto dest = m_Stack.Pop ();
+
+				if (dest.m_Type != VAR_T) {
+					LOGINSTERR ("MEMSET", INVALIDSTACKVALUETYPE);
+					Free ();
+					return;
+				}
+
+				auto* validDestination = &m_BSS.m_Variables[dest.m_Data.m_I32];
+
+				if (validDestination->m_Type == MANAGED_T) {
+					m_Allocator.RemoveRef (validDestination->m_Data.m_ManagedPtr);
+				}
+
+				if (src.m_Type == VAR_T) {
+					auto* srcVariable = &m_BSS.m_Variables[src.m_Data.m_I32];
+					std::memcpy (validDestination, srcVariable, sizeof (TSValue));
+				}
+				else {
+					std::memcpy (validDestination, &src, sizeof (TSValue));
+				}
+			}
+			case TOC: {
+				auto poppedValue = m_Stack.Pop ();
+				if (poppedValue.m_Type == VAR_T) {
+					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+					if (TryCast<CHAR> (variable, &TSData::m_C)) {
+						variable.m_Type = CHAR_T;
+						m_Stack.Push (variable);
+					}
+				}
+				else {
+					if (TryCast<CHAR> (poppedValue, &TSData::m_C)) {
+						poppedValue.m_Type = CHAR_T;
+						m_Stack.Push (poppedValue);
+					}
+				}
+			}
+			case TOUC: {
+				auto poppedValue = m_Stack.Pop ();
+				if (poppedValue.m_Type == VAR_T) {
+					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+					if (TryCast<BYTE> (variable, &TSData::m_UC)) {
+						variable.m_Type = BYTE_T;
+						m_Stack.Push (variable);
+					}
+				}
+				else {
+					if (TryCast<BYTE> (poppedValue, &TSData::m_UC)) {
+						poppedValue.m_Type = BYTE_T;
+						m_Stack.Push (poppedValue);
+					}
+				}
+			}
+			case TOU16: {
+				auto poppedValue = m_Stack.Pop ();
+				if (poppedValue.m_Type == VAR_T) {
+					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+					if (TryCast<UINT16> (variable, &TSData::m_U16)) {
+						variable.m_Type = UINT16_T;
+						m_Stack.Push (variable);
+					}
+				}
+				else {
+					if (TryCast<UINT16> (poppedValue, &TSData::m_U16)) {
+						poppedValue.m_Type = UINT16_T;
+						m_Stack.Push (poppedValue);
+					}
+				}
+			}
+		}
+	}
+}
+
+void TSVirtualMachine::Free () {
+	m_Allocator.FreeRoot ();
+	delete[] m_BSS.m_Variables;
+	delete[] m_ASM.m_Instructions;
 }

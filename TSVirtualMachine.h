@@ -1,17 +1,28 @@
 #ifndef VIRTUALMACHINE_H
 #define VIRTUALMACHINE_H
 
-#include <Windows.h>
+#include <wtypes.h>
 #include <iostream>
 #include <vector>
 
+#define INVALIDTYPETOCAST	   "Invalid type to cast!"
+#define INVALIDINSTRUCTIONTYPE "Invalid instruction value type!"
+#define INVALIDSTACKVALUETYPE  "Invalid popped stack value type!"
+#define LOGOUTOFBOUNDS(OBJ)    std::cerr << OBJ ": Element is out of bounds!" << std::endl
+#define LOGINSTERR(INST, ERR)  std::cerr << INST ": " ERR << std::endl
+
+#define SECONDOF(ARR)          ARR[1]
+
+typedef int RESULT;
+
 enum TSOperation : CHAR {
 	PUSH,
+	POP,
 	JMP,
+	JMPC,		//Jump if true (Conditional jump)
 
 	MEMALLOC,
 	MEMDEALLOC,
-	MEMSET,
 	MEMCPY,
 
 	TOC,
@@ -38,7 +49,7 @@ enum TSOperation : CHAR {
 	CMPLE,
 };
 
-enum TSDataType : CHAR {
+enum TSDataType : INT {
 	CHAR_T,
 	BYTE_T,
 	UINT16_T,
@@ -49,8 +60,8 @@ enum TSDataType : CHAR {
 	INT64_T,
 	FLOAT32_T,
 	FLOAT64_T,
+	VAR_T,
 	MANAGED_T,
-	MANAGEDARR_T,
 	NATIVEPTR_T
 };
 
@@ -77,21 +88,24 @@ struct TSValue {
 struct TSManagedMemory {
 	TSValue*         m_Memory;
 	ULONG_PTR        m_Size;
-	INT              m_NumBindings;
+	INT              m_RefCount;
 	TSManagedMemory* m_Next;
 	TSManagedMemory* m_Previous;
-
-	void Free ();
 };
 
 struct TSInstruction {
 	TSOperation m_Operation;
-	TSValue m_Value;
+	TSValue		m_Value;
 };
 
 struct TSASM {
 	TSInstruction* m_Instructions;
 	ULONG_PTR      m_Size;
+};
+
+struct TSBSS {
+	TSValue*  m_Variables;
+	ULONG_PTR m_Size;
 };
 
 class TSStack {
@@ -100,6 +114,8 @@ class TSStack {
 public:
 	TSStack (ULONG_PTR size);
 	~TSStack ();
+
+	const ULONG_PTR m_Size;
 
 	void Push (TSValue entity);
 	TSValue Pop ();
@@ -113,18 +129,66 @@ public:
 
 	TSManagedMemory* Alloc (TSValue* memory, ULONG_PTR size);
 	void Free (TSManagedMemory* ptr);
+	void RemoveRef (TSManagedMemory* ptr);
 	void FreeRoot ();
 };
 
 class TSVirtualMachine {
 	TSStack     m_Stack;
 	TSAllocator m_Allocator;
+	TSBSS       m_BSS;
 	TSASM       m_ASM;
+
+	template<typename TYPE>
+	RESULT TryCast (TSValue& value, TYPE TSData::* sourceField) {
+		switch (value.m_Type) {
+			case CHAR_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_C);
+			break;
+			case BYTE_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_UC);
+			break;
+			case UINT16_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_U16);
+			break;
+			case UINT32_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_U32);
+			break;
+			case UINT64_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_U64);
+			break;
+			case INT16_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_I16);
+			break;
+			case INT32_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_I32);
+			break;
+			case INT64_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_I64);
+			break;
+			case FLOAT32_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_F32);
+			break;
+			case FLOAT64_T:
+			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_F64);
+			break;
+			default: {
+				LOGINSTERR ("CAST", INVALIDTYPETOCAST);
+				Free ();
+				return FALSE;
+			}
+		}
+		return TRUE;
+	}
+
 public:
-	TSVirtualMachine (ULONG_PTR stackSize, TSASM asmSet);
+	TSVirtualMachine (ULONG_PTR stackSize, TSBSS bss, TSASM asm_);
 	~TSVirtualMachine ();
 
-	void Run ();
+	void Run (INT entryPoint = 0);
+	void Free ();
+
+
 };
 
 #endif
