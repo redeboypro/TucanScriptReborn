@@ -181,6 +181,25 @@ class TSVirtualMachine {
 		return TRUE;
 	}
 
+	template<typename TYPE>
+	void Cast (TSDataType type, TYPE TSData::* sourceField) {
+		auto poppedValue = m_Stack.Pop ();
+		if (poppedValue.m_Type == VAR_T) {
+			auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+			if (TryCast<TYPE> (variable, sourceField)) {
+				variable.m_Type = type;
+				m_Stack.Push (variable);
+			}
+		}
+		else {
+			if (TryCast<TYPE> (poppedValue, sourceField)) {
+				poppedValue.m_Type = type;
+				m_Stack.Push (poppedValue);
+			}
+		}
+		break;
+	}
+
 public:
 	TSVirtualMachine (ULONG_PTR stackSize, TSBSS bss, TSASM asm_);
 	~TSVirtualMachine ();

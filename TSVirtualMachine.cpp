@@ -106,9 +106,11 @@ void TSVirtualMachine::Run (INT entryPoint) {
 		switch (instruction.m_Operation) {
 			case PUSH: {
 				m_Stack.Push (instruction.m_Value);
+				break;
 			}
 			case POP: {
 				m_Stack.Pop ();
+				break;
 			}
 			case JMP: {
 				auto instructionValue = instruction.m_Value;
@@ -120,6 +122,7 @@ void TSVirtualMachine::Run (INT entryPoint) {
 					Free ();
 					return;
 				}
+				break;
 			}
 			case JMPC: {
 				auto instructionValue = instruction.m_Value;
@@ -136,6 +139,7 @@ void TSVirtualMachine::Run (INT entryPoint) {
 					Free ();
 					return;
 				}
+				break;
 			}
 			case MEMALLOC: {
 				ULONG_PTR size = instruction.m_Value.m_Data.m_I32;
@@ -152,6 +156,7 @@ void TSVirtualMachine::Run (INT entryPoint) {
 							.m_ManagedPtr = m_Allocator.Alloc(memoryValues, size)
 						}
 				});
+				break;
 			}
 			case MEMDEALLOC: {
 				auto poppedValue = m_Stack.Pop ();
@@ -170,6 +175,7 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				else {
 					variable->m_Data.m_U64 = NULL;
 				}
+				break;
 			}
 			case MEMCPY: {
 				auto src = m_Stack.Pop ();
@@ -194,54 +200,47 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				else {
 					std::memcpy (validDestination, &src, sizeof (TSValue));
 				}
+				break;
 			}
 			case TOC: {
-				auto poppedValue = m_Stack.Pop ();
-				if (poppedValue.m_Type == VAR_T) {
-					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
-					if (TryCast<CHAR> (variable, &TSData::m_C)) {
-						variable.m_Type = CHAR_T;
-						m_Stack.Push (variable);
-					}
-				}
-				else {
-					if (TryCast<CHAR> (poppedValue, &TSData::m_C)) {
-						poppedValue.m_Type = CHAR_T;
-						m_Stack.Push (poppedValue);
-					}
-				}
+				Cast <CHAR> (CHAR_T, &TSData::m_C);
+				break;
 			}
 			case TOUC: {
-				auto poppedValue = m_Stack.Pop ();
-				if (poppedValue.m_Type == VAR_T) {
-					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
-					if (TryCast<BYTE> (variable, &TSData::m_UC)) {
-						variable.m_Type = BYTE_T;
-						m_Stack.Push (variable);
-					}
-				}
-				else {
-					if (TryCast<BYTE> (poppedValue, &TSData::m_UC)) {
-						poppedValue.m_Type = BYTE_T;
-						m_Stack.Push (poppedValue);
-					}
-				}
+				Cast <BYTE> (BYTE_T, &TSData::m_UC);
+				break;
 			}
 			case TOU16: {
-				auto poppedValue = m_Stack.Pop ();
-				if (poppedValue.m_Type == VAR_T) {
-					auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
-					if (TryCast<UINT16> (variable, &TSData::m_U16)) {
-						variable.m_Type = UINT16_T;
-						m_Stack.Push (variable);
-					}
-				}
-				else {
-					if (TryCast<UINT16> (poppedValue, &TSData::m_U16)) {
-						poppedValue.m_Type = UINT16_T;
-						m_Stack.Push (poppedValue);
-					}
-				}
+				Cast <UINT16> (UINT16_T, &TSData::m_U16);
+				break;
+			}
+			case TOU32: {
+				Cast <UINT32> (UINT32_T, &TSData::m_U32);
+				break;
+			}
+			case TOU64: {
+				Cast <UINT64> (UINT64_T, &TSData::m_U64);
+				break;
+			}
+			case TOI16: {
+				Cast <INT16> (INT16_T, &TSData::m_I16);
+				break;
+			}
+			case TOI32: {
+				Cast <INT32> (INT32_T, &TSData::m_I32);
+				break;
+			}
+			case TOI64: {
+				Cast <INT64> (INT64_T, &TSData::m_I64);
+				break;
+			}
+			case TOF32: {
+				Cast <FLOAT> (FLOAT32_T, &TSData::m_F32);
+				break;
+			}
+			case TOF64: {
+				Cast <DOUBLE> (FLOAT64_T, &TSData::m_F64);
+				break;
 			}
 		}
 	}
