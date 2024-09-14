@@ -1,5 +1,39 @@
 #include "TSVirtualMachine.h"
 
+#define APPLY_OPERATION(AVAL, BVAL, OP)                             \
+switch ((AVAL).m_Type) {                                            \
+	case CHAR_T:                                                    \
+	m_Stack.Push ((AVAL).m_Data.m_C OP (BVAL).m_Data.m_C);          \
+	break;                                                          \
+	case BYTE_T:                                                    \
+	m_Stack.Push ((AVAL).m_Data.m_UC OP (BVAL).m_Data.m_UC);        \
+	break;                                                          \
+	case UINT16_T:                                                  \
+	m_Stack.Push ((AVAL).m_Data.m_U16 OP (BVAL).m_Data.m_U16);      \
+	break;                                                          \
+	case UINT32_T:                                                  \
+	m_Stack.Push ((AVAL).m_Data.m_U32 OP (BVAL).m_Data.m_U32);      \
+	break;                                                          \
+	case UINT64_T:                                                  \
+	m_Stack.Push ((AVAL).m_Data.m_U64 OP (BVAL).m_Data.m_U64);      \
+	break;                                                          \
+	case INT16_T:                                                   \
+	m_Stack.Push ((AVAL).m_Data.m_I16 OP (BVAL).m_Data.m_I16);      \
+	break;                                                          \
+	case INT32_T:                                                   \
+	m_Stack.Push ((AVAL).m_Data.m_I32 OP (BVAL).m_Data.m_I32);      \
+	break;                                                          \
+	case INT64_T:                                                   \
+	m_Stack.Push ((AVAL).m_Data.m_I64 OP (BVAL).m_Data.m_I64);      \
+	break;                                                          \
+	case FLOAT32_T:                                                 \
+	m_Stack.Push ((AVAL).m_Data.m_F32 OP (BVAL).m_Data.m_F32);      \
+	break;                                                          \
+	case FLOAT64_T:                                                 \
+	m_Stack.Push ((AVAL).m_Data.m_F64 OP (BVAL).m_Data.m_F64);      \
+	break;                                                          \
+}
+
 TSStack::TSStack (ULONG_PTR size) : m_End(NULL), m_Size(size) {
 	m_Data = new TSValue[size];
 }
@@ -11,6 +45,50 @@ TSStack::~TSStack () {
 void TSStack::Push (TSValue entity) {
 	m_Data[m_End] = entity;
 	m_End++;
+}
+
+void TSStack::Push (bool value) {
+	Push (static_cast<INT32>(value));
+}
+
+void TSStack::Push (CHAR value) {
+	Push <CHAR, CHAR_T> (value, &TSData::m_C);
+}
+
+void TSStack::Push (BYTE value) {
+	Push <BYTE, BYTE_T> (value, &TSData::m_UC);
+}
+
+void TSStack::Push (UINT16 value) {
+	Push <UINT16, UINT16_T> (value, &TSData::m_U16);
+}
+
+void TSStack::Push (UINT32 value) {
+	Push <UINT32, UINT32_T> (value, &TSData::m_U32);
+}
+
+void TSStack::Push (UINT64 value) {
+	Push <UINT64, UINT64_T> (value, &TSData::m_U64);
+}
+
+void TSStack::Push (INT16 value) {
+	Push <INT16, INT16_T> (value, &TSData::m_I16);
+}
+
+void TSStack::Push (INT32 value) {
+	Push <INT32, INT32_T> (value, &TSData::m_I32);
+}
+
+void TSStack::Push (INT64 value) {
+	Push <INT64, INT64_T> (value, &TSData::m_I64);
+}
+
+void TSStack::Push (FLOAT value) {
+	Push <FLOAT, FLOAT32_T> (value, &TSData::m_F32);
+}
+
+void TSStack::Push (DOUBLE value) {
+	Push <DOUBLE, FLOAT64_T> (value, &TSData::m_F64);
 }
 
 TSValue TSStack::Pop () {
@@ -246,28 +324,60 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				auto a = m_Stack.Pop ();
 				auto b = m_Stack.Pop ();
 				APPLY_OPERATION (a, b, +);
-				m_Stack.Push (a);
 				break;
 			}
 			case SUB: {
 				auto a = m_Stack.Pop ();
 				auto b = m_Stack.Pop ();
 				APPLY_OPERATION (a, b, -);
-				m_Stack.Push (a);
 				break;
 			}
 			case MUL: {
 				auto a = m_Stack.Pop ();
 				auto b = m_Stack.Pop ();
 				APPLY_OPERATION (a, b, *);
-				m_Stack.Push (a);
 				break;
 			}
 			case DIV: {
 				auto a = m_Stack.Pop ();
 				auto b = m_Stack.Pop ();
 				APPLY_OPERATION (a, b, /);
-				m_Stack.Push (a);
+				break;
+			}
+			case CMPE: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, ==);
+				break;
+			}
+			case CMPNE: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, !=);
+				break;
+			}
+			case CMPG: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, >);
+				break;
+			}
+			case CMPL: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, <);
+				break;
+			}
+			case CMPGE: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, >=);
+				break;
+			}
+			case CMPLE: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, <=);
 				break;
 			}
 		}

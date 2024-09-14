@@ -11,9 +11,11 @@
 #define LOGOUTOFBOUNDS(OBJ)    std::cerr << OBJ ": Element is out of bounds!" << std::endl
 #define LOGINSTERR(INST, ERR)  std::cerr << INST ": " ERR << std::endl
 
-#define SECONDOF(ARR)          ARR[1]
-
 typedef int RESULT;
+
+union  TSData;
+struct TSValue;
+struct TSManagedMemory;
 
 enum TSOperation : CHAR {
 	PUSH,
@@ -117,7 +119,26 @@ public:
 
 	const ULONG_PTR m_Size;
 
+	template<typename ÑTYPE, TSDataType TYPE>
+	inline void Push (ÑTYPE value, ÑTYPE TSData::* field) {
+		TSValue result {};
+		result.m_Type = TYPE;
+		result.m_Data.*field = value;
+		Push (result);
+	}
+
 	void Push (TSValue entity);
+	void Push (bool value);
+	void Push (CHAR value);
+	void Push (BYTE value);
+	void Push (UINT16 value);
+	void Push (UINT32 value);
+	void Push (UINT64 value);
+	void Push (INT16 value);
+	void Push (INT32 value);
+	void Push (INT64 value);
+	void Push (FLOAT value);
+	void Push (DOUBLE value);
 	TSValue Pop ();
 };
 
@@ -197,7 +218,6 @@ class TSVirtualMachine {
 				m_Stack.Push (poppedValue);
 			}
 		}
-		break;
 	}
 
 public:
@@ -209,74 +229,5 @@ public:
 
 
 };
-
-#define APPLY_OPERATION(AVAL, BVAL, OP)                                     \
-		switch (AVAL.m_Type) {                                              \
-			case CHAR_T:                                                    \
-			AVAL.m_Data.m_C = (AVAL.m_Data.m_C OP BVAL.m_Data.m_C);         \
-			break;                                                          \
-			case BYTE_T:                                                    \
-			AVAL.m_Data.m_UC = (AVAL.m_Data.m_UC OP BVAL.m_Data.m_UC);      \
-			break;                                                          \
-			case UINT16_T:                                                  \
-			AVAL.m_Data.m_U16 = (AVAL.m_Data.m_U16 OP BVAL.m_Data.m_U16);   \
-			break;                                                          \
-			case UINT32_T:                                                  \
-			AVAL.m_Data.m_U32 = (AVAL.m_Data.m_U32 OP BVAL.m_Data.m_U32);   \
-			break;                                                          \
-			case UINT64_T:                                                  \
-			AVAL.m_Data.m_U64 = (AVAL.m_Data.m_U64 OP BVAL.m_Data.m_U64);   \
-			break;                                                          \
-			case INT16_T:                                                   \
-			AVAL.m_Data.m_I16 = (AVAL.m_Data.m_I16 OP BVAL.m_Data.m_I16);   \
-			break;                                                          \
-			case INT32_T:                                                   \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_I32 OP BVAL.m_Data.m_I32);   \
-			break;                                                          \
-			case INT64_T:                                                   \
-			AVAL.m_Data.m_I64 = (AVAL.m_Data.m_I64 OP BVAL.m_Data.m_I64);   \
-			break;                                                          \
-			case FLOAT32_T:                                                 \
-			AVAL.m_Data.m_F32 = (AVAL.m_Data.m_F32 OP BVAL.m_Data.m_F32);   \
-			break;                                                          \
-			case FLOAT64_T:                                                 \
-			AVAL.m_Data.m_F64 = (AVAL.m_Data.m_F64 OP BVAL.m_Data.m_F64);   \
-			break;                                                          \
-		}
-
-#define APPLY_CMP(AVAL, BVAL, OP)                                           \
-		switch (AVAL.m_Type) {                                              \
-			case CHAR_T:                                                    \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_C OP BVAL.m_Data.m_C);       \
-			break;                                                          \
-			case BYTE_T:                                                    \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_UC OP BVAL.m_Data.m_UC);     \
-			break;                                                          \
-			case UINT16_T:                                                  \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_U16 OP BVAL.m_Data.m_U16);   \
-			break;                                                          \
-			case UINT32_T:                                                  \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_U32 OP BVAL.m_Data.m_U32);   \
-			break;                                                          \
-			case UINT64_T:                                                  \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_U64 OP BVAL.m_Data.m_U64);   \
-			break;                                                          \
-			case INT16_T:                                                   \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_I16 OP BVAL.m_Data.m_I16);   \
-			break;                                                          \
-			case INT32_T:                                                   \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_I32 OP BVAL.m_Data.m_I32);   \
-			break;                                                          \
-			case INT64_T:                                                   \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_I64 OP BVAL.m_Data.m_I64);   \
-			break;                                                          \
-			case FLOAT32_T:                                                 \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_F32 OP BVAL.m_Data.m_F32);   \
-			break;                                                          \
-			case FLOAT64_T:                                                 \
-			AVAL.m_Data.m_I32 = (AVAL.m_Data.m_F64 OP BVAL.m_Data.m_F64);   \
-			break;                                                          \
-		}                                                                   \
-		AVAL.m_Type = INT32_T;
 
 #endif
