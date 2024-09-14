@@ -119,8 +119,8 @@ public:
 
 	const ULONG_PTR m_Size;
 
-	template<typename ÑTYPE, TSDataType TYPE>
-	inline void Push (ÑTYPE value, ÑTYPE TSData::* field) {
+	template<typename Ð¡TYPE, TSDataType TYPE>
+	inline void Push (Ð¡TYPE value, Ð¡TYPE TSData::* field) {
 		TSValue result {};
 		result.m_Type = TYPE;
 		result.m_Data.*field = value;
@@ -226,8 +226,6 @@ public:
 
 	void Run (INT entryPoint = 0);
 	void Free ();
-
-
 };
 
 #endif
