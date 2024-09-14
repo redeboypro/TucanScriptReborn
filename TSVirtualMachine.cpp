@@ -242,6 +242,34 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				Cast <DOUBLE> (FLOAT64_T, &TSData::m_F64);
 				break;
 			}
+			case ADD: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, +);
+				m_Stack.Push (a);
+				break;
+			}
+			case SUB: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, -);
+				m_Stack.Push (a);
+				break;
+			}
+			case MUL: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, *);
+				m_Stack.Push (a);
+				break;
+			}
+			case DIV: {
+				auto a = m_Stack.Pop ();
+				auto b = m_Stack.Pop ();
+				APPLY_OPERATION (a, b, /);
+				m_Stack.Push (a);
+				break;
+			}
 		}
 	}
 }
