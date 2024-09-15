@@ -49,6 +49,8 @@ enum TSOperation : CHAR {
 	CMPL,
 	CMPGE,
 	CMPLE,
+
+	PRINTF
 };
 
 enum TSDataType : INT {
@@ -218,6 +220,42 @@ class TSVirtualMachine {
 				m_Stack.Push (poppedValue);
 			}
 		}
+	}
+
+	void PrintF (const TSValue& value) {
+		switch (value.m_Type) {
+			case CHAR_T:
+			std::cout << value.m_Data.m_C;
+			break;
+			case BYTE_T:
+			std::cout << value.m_Data.m_UC;
+			break;
+			case UINT16_T:
+			std::cout << value.m_Data.m_U16;
+			break;
+			case UINT32_T:
+			std::cout << value.m_Data.m_U32;
+			break;
+			case UINT64_T:
+			std::cout << value.m_Data.m_U64;
+			break;
+			case INT16_T:
+			std::cout << value.m_Data.m_I16;
+			break;
+			case INT32_T:
+			std::cout << value.m_Data.m_I32;
+			break;
+			case INT64_T:
+			std::cout << value.m_Data.m_I64;
+			break;
+			case FLOAT32_T:
+			std::cout << value.m_Data.m_F32;
+			break;
+			case FLOAT64_T:
+			std::cout << value.m_Data.m_F64;
+			break;
+		}
+		std::flush (std::cout);
 	}
 
 public:

@@ -380,6 +380,9 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				APPLY_OPERATION (a, b, <=);
 				break;
 			}
+			case PRINTF: {
+				PrintF (m_Stack.Pop ());
+			}
 		}
 	}
 }
