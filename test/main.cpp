@@ -1,8 +1,6 @@
 #include "..\TSVirtualMachine.h"
 
-constexpr auto NUM_INSTRUCTIONS = 4;
-constexpr auto A = 3; 
-constexpr auto B = 2;
+constexpr auto NUM_INSTRUCTIONS = 9;
 
 int main () {
 	TSBSS variables {
@@ -16,7 +14,7 @@ int main () {
 			.m_Value = TSValue {
 				.m_Type = INT32_T,
 				.m_Data = TSData {
-					.m_I32 = A
+					.m_I32 = 3
 				}
 			}
 		},
@@ -25,7 +23,34 @@ int main () {
 			.m_Value = TSValue {
 				.m_Type = INT32_T,
 				.m_Data = TSData {
-					.m_I32 = B
+					.m_I32 = 2
+				}
+			}
+		},
+		TSInstruction {
+			.m_Operation = ADD
+		},
+		TSInstruction {
+			.m_Operation = PUSH,
+			.m_Value = TSValue {
+				.m_Type = INT32_T,
+				.m_Data = TSData {
+					.m_I32 = 2
+				}
+			}
+		},
+		TSInstruction {
+			.m_Operation = MUL
+		},
+		TSInstruction {
+			.m_Operation = TOF32
+		},
+		TSInstruction {
+			.m_Operation = PUSH,
+			.m_Value = TSValue {
+				.m_Type = FLOAT32_T,
+				.m_Data = TSData {
+					.m_F32 = 0.5F
 				}
 			}
 		},
@@ -43,6 +68,6 @@ int main () {
 	};
 
 	auto* vmInstance = new TSVirtualMachine (512UL, variables, instructionSet);
-	vmInstance->Run (); //Should print "5"
+	vmInstance->Run (); //Should print "10.5"
 	delete vmInstance;
 }

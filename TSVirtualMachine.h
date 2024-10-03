@@ -1,7 +1,7 @@
 #ifndef VIRTUALMACHINE_H
 #define VIRTUALMACHINE_H
 
-#include <wtypes.h>
+#include "TSTypes.h"
 #include <iostream>
 #include <vector>
 
@@ -11,13 +11,13 @@
 #define LOGOUTOFBOUNDS(OBJ)    std::cerr << OBJ ": Element is out of bounds!" << std::endl
 #define LOGINSTERR(INST, ERR)  std::cerr << INST ": " ERR << std::endl
 
-typedef int RESULT;
-
 union  TSData;
 struct TSValue;
 struct TSManagedMemory;
 
-enum TSOperation : CHAR {
+enum TSOperation : SInt8 {
+	HALT,
+
 	PUSH,
 	POP,
 	JMP,
@@ -53,7 +53,7 @@ enum TSOperation : CHAR {
 	PRINTF
 };
 
-enum TSDataType : INT {
+enum TSDataType : SInt32 {
 	CHAR_T,
 	BYTE_T,
 	UINT16_T,
@@ -70,18 +70,18 @@ enum TSDataType : INT {
 };
 
 union TSData {
-	CHAR             m_C;
-	BYTE             m_UC;
-	UINT16           m_U16;
-	UINT32           m_U32;
-	UINT64           m_U64;
-	INT16            m_I16;
-	INT32            m_I32;
-	INT64            m_I64;
-	FLOAT            m_F32;
-	DOUBLE           m_F64;
+	SInt8            m_C;
+	UInt8            m_UC;
+	UInt16           m_U16;
+	UInt32           m_U32;
+	UInt64           m_U64;
+	SInt16           m_I16;
+	SInt32           m_I32;
+	SInt64           m_I64;
+	Dec32            m_F32;
+	Dec64            m_F64;
 	TSManagedMemory* m_ManagedPtr;
-	VOID*            m_NativePtr;
+	Undef*           m_NativePtr;
 };
 
 struct TSValue {
@@ -91,8 +91,8 @@ struct TSValue {
 
 struct TSManagedMemory {
 	TSValue*         m_Memory;
-	ULONG_PTR        m_Size;
-	INT              m_RefCount;
+	UInt64           m_Size;
+	SInt32           m_RefCount;
 	TSManagedMemory* m_Next;
 	TSManagedMemory* m_Previous;
 };
@@ -104,22 +104,22 @@ struct TSInstruction {
 
 struct TSASM {
 	TSInstruction* m_Instructions;
-	ULONG_PTR      m_Size;
+	UInt64         m_Size;
 };
 
 struct TSBSS {
 	TSValue*  m_Variables;
-	ULONG_PTR m_Size;
+	UInt64    m_Size;
 };
 
 class TSStack {
 	TSValue* m_Data;
-	INT      m_End;
+	SInt32   m_End;
 public:
-	TSStack (ULONG_PTR size);
+	TSStack (UInt64 size);
 	~TSStack ();
 
-	const ULONG_PTR m_Size;
+	const UInt64 m_Size;
 
 	template<typename СTYPE, TSDataType TYPE>
 	inline void Push (СTYPE value, СTYPE TSData::* field) {
@@ -130,17 +130,17 @@ public:
 	}
 
 	void Push (TSValue entity);
-	void Push (bool value);
-	void Push (CHAR value);
-	void Push (BYTE value);
-	void Push (UINT16 value);
-	void Push (UINT32 value);
-	void Push (UINT64 value);
-	void Push (INT16 value);
-	void Push (INT32 value);
-	void Push (INT64 value);
-	void Push (FLOAT value);
-	void Push (DOUBLE value);
+	void Push (Boolean value);
+	void Push (SInt8 value);
+	void Push (UInt8 value);
+	void Push (UInt16 value);
+	void Push (UInt32 value);
+	void Push (UInt64 value);
+	void Push (SInt16 value);
+	void Push (SInt32 value);
+	void Push (SInt64 value);
+	void Push (Dec32 value);
+	void Push (Dec64 value);
 	TSValue Pop ();
 };
 
@@ -150,7 +150,7 @@ class TSAllocator {
 public:
 	TSAllocator ();
 
-	TSManagedMemory* Alloc (TSValue* memory, ULONG_PTR size);
+	TSManagedMemory* Alloc (TSValue* memory, UInt64 size);
 	void Free (TSManagedMemory* ptr);
 	void RemoveRef (TSManagedMemory* ptr);
 	void FreeRoot ();
@@ -162,8 +162,8 @@ class TSVirtualMachine {
 	TSBSS       m_BSS;
 	TSASM       m_ASM;
 
-	template<typename TYPE>
-	RESULT TryCast (TSValue& value, TYPE TSData::* sourceField) {
+	Generic<Type TYPE>
+	SInt32 TryCast (TSValue& value, TYPE TSData::* sourceField) {
 		switch (value.m_Type) {
 			case CHAR_T:
 			value.m_Data.*sourceField = static_cast<TYPE>(value.m_Data.m_C);
@@ -198,13 +198,13 @@ class TSVirtualMachine {
 			default: {
 				LOGINSTERR ("CAST", INVALIDTYPETOCAST);
 				Free ();
-				return FALSE;
+				return 0;
 			}
 		}
-		return TRUE;
+		return 1;
 	}
 
-	template<typename TYPE>
+	Generic<Type TYPE>
 	void Cast (TSDataType type, TYPE TSData::* sourceField) {
 		auto poppedValue = m_Stack.Pop ();
 		if (poppedValue.m_Type == VAR_T) {
@@ -259,10 +259,10 @@ class TSVirtualMachine {
 	}
 
 public:
-	TSVirtualMachine (ULONG_PTR stackSize, TSBSS bss, TSASM asm_);
+	TSVirtualMachine (UInt64 stackSize, TSBSS bss, TSASM asm_);
 	~TSVirtualMachine ();
 
-	void Run (INT entryPoint = 0);
+	void Run (SInt32 entryPoint = 0);
 	void Free ();
 };
 

@@ -34,7 +34,7 @@ switch ((AVAL).m_Type) {                                            \
 	break;                                                          \
 }
 
-TSStack::TSStack (ULONG_PTR size) : m_End(NULL), m_Size(size) {
+TSStack::TSStack (UInt64 size) : m_End(NULL), m_Size(size) {
 	m_Data = new TSValue[size];
 }
 
@@ -47,48 +47,48 @@ void TSStack::Push (TSValue entity) {
 	m_End++;
 }
 
-void TSStack::Push (bool value) {
-	Push (static_cast<INT32>(value));
+void TSStack::Push (Boolean value) {
+	Push (static_cast<SInt32>(value));
 }
 
-void TSStack::Push (CHAR value) {
-	Push <CHAR, CHAR_T> (value, &TSData::m_C);
+void TSStack::Push (SInt8 value) {
+	Push <SInt8, CHAR_T> (value, &TSData::m_C);
 }
 
-void TSStack::Push (BYTE value) {
-	Push <BYTE, BYTE_T> (value, &TSData::m_UC);
+void TSStack::Push (UInt8 value) {
+	Push <UInt8, BYTE_T> (value, &TSData::m_UC);
 }
 
-void TSStack::Push (UINT16 value) {
-	Push <UINT16, UINT16_T> (value, &TSData::m_U16);
+void TSStack::Push (UInt16 value) {
+	Push <UInt16, UINT16_T> (value, &TSData::m_U16);
 }
 
-void TSStack::Push (UINT32 value) {
-	Push <UINT32, UINT32_T> (value, &TSData::m_U32);
+void TSStack::Push (UInt32 value) {
+	Push <UInt32, UINT32_T> (value, &TSData::m_U32);
 }
 
-void TSStack::Push (UINT64 value) {
-	Push <UINT64, UINT64_T> (value, &TSData::m_U64);
+void TSStack::Push (UInt64 value) {
+	Push <UInt64, UINT64_T> (value, &TSData::m_U64);
 }
 
-void TSStack::Push (INT16 value) {
-	Push <INT16, INT16_T> (value, &TSData::m_I16);
+void TSStack::Push (SInt16 value) {
+	Push <SInt16, INT16_T> (value, &TSData::m_I16);
 }
 
-void TSStack::Push (INT32 value) {
-	Push <INT32, INT32_T> (value, &TSData::m_I32);
+void TSStack::Push (SInt32 value) {
+	Push <SInt32, INT32_T> (value, &TSData::m_I32);
 }
 
-void TSStack::Push (INT64 value) {
-	Push <INT64, INT64_T> (value, &TSData::m_I64);
+void TSStack::Push (SInt64 value) {
+	Push <SInt64, INT64_T> (value, &TSData::m_I64);
 }
 
-void TSStack::Push (FLOAT value) {
-	Push <FLOAT, FLOAT32_T> (value, &TSData::m_F32);
+void TSStack::Push (Dec32 value) {
+	Push <Dec32, FLOAT32_T> (value, &TSData::m_F32);
 }
 
-void TSStack::Push (DOUBLE value) {
-	Push <DOUBLE, FLOAT64_T> (value, &TSData::m_F64);
+void TSStack::Push (Dec64 value) {
+	Push <Dec64, FLOAT64_T> (value, &TSData::m_F64);
 }
 
 TSValue TSStack::Pop () {
@@ -96,7 +96,7 @@ TSValue TSStack::Pop () {
 	return m_Data[m_End];
 }
 
-TSVirtualMachine::TSVirtualMachine (ULONG_PTR stackSize, TSBSS bss, TSASM asm_) :
+TSVirtualMachine::TSVirtualMachine (UInt64 stackSize, TSBSS bss, TSASM asm_) :
 	m_Stack(stackSize), m_BSS (std::move (bss)), m_ASM (std::move (asm_)) {}
 
 TSVirtualMachine::~TSVirtualMachine () {
@@ -106,8 +106,8 @@ TSVirtualMachine::~TSVirtualMachine () {
 
 TSAllocator::TSAllocator () : m_Begin (nullptr), m_End (nullptr) {}
 
-TSManagedMemory* TSAllocator::Alloc (TSValue* memory, ULONG_PTR size) {
-	for (INT iValue = 0; iValue < size; iValue++) {
+TSManagedMemory* TSAllocator::Alloc (TSValue* memory, UInt64 size) {
+	for (SInt32 iValue = 0; iValue < size; iValue++) {
 		auto& value = memory;
 		if (value->m_Type == MANAGED_T) {
 			value->m_Data.m_ManagedPtr->m_RefCount++;
@@ -138,7 +138,7 @@ void TSAllocator::Free (TSManagedMemory* ptr) {
 	auto* previousPtr = ptr->m_Previous;
 	auto* nextPtr = ptr->m_Next;
 
-	for (INT iValue = 0; iValue < ptr->m_Size; ++iValue) {
+	for (SInt32 iValue = 0; iValue < ptr->m_Size; ++iValue) {
 		auto& value = ptr->m_Memory[iValue];
 		if (value.m_Type == MANAGED_T) {
 			RemoveRef (value.m_Data.m_ManagedPtr);
@@ -178,10 +178,14 @@ void TSAllocator::FreeRoot () {
 	}
 }
 
-void TSVirtualMachine::Run (INT entryPoint) {
-	for (INT iInst = entryPoint; iInst < m_ASM.m_Size; ++iInst) {
+void TSVirtualMachine::Run (SInt32 entryPoint) {
+	for (SInt32 iInst = entryPoint; iInst < m_ASM.m_Size; ++iInst) {
 		auto& instruction = m_ASM.m_Instructions[iInst];
 		switch (instruction.m_Operation) {
+			case HALT: {
+				Free ();
+				return;
+			}
 			case PUSH: {
 				m_Stack.Push (instruction.m_Value);
 				break;
@@ -220,10 +224,10 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				break;
 			}
 			case MEMALLOC: {
-				ULONG_PTR size = instruction.m_Value.m_Data.m_I32;
+				UInt64 size = instruction.m_Value.m_Data.m_I32;
 				auto* memoryValues = new TSValue[size];
 
-				for (INT iValue = 0; iValue < size; ++iValue) {
+				for (SInt32 iValue = 0; iValue < size; ++iValue) {
 					memoryValues[iValue] = m_Stack.Pop ();
 				}
 
@@ -281,43 +285,43 @@ void TSVirtualMachine::Run (INT entryPoint) {
 				break;
 			}
 			case TOC: {
-				Cast <CHAR> (CHAR_T, &TSData::m_C);
+				Cast <SInt8> (CHAR_T, &TSData::m_C);
 				break;
 			}
 			case TOUC: {
-				Cast <BYTE> (BYTE_T, &TSData::m_UC);
+				Cast <UInt8> (BYTE_T, &TSData::m_UC);
 				break;
 			}
 			case TOU16: {
-				Cast <UINT16> (UINT16_T, &TSData::m_U16);
+				Cast <UInt16> (UINT16_T, &TSData::m_U16);
 				break;
 			}
 			case TOU32: {
-				Cast <UINT32> (UINT32_T, &TSData::m_U32);
+				Cast <UInt32> (UINT32_T, &TSData::m_U32);
 				break;
 			}
 			case TOU64: {
-				Cast <UINT64> (UINT64_T, &TSData::m_U64);
+				Cast <UInt64> (UINT64_T, &TSData::m_U64);
 				break;
 			}
 			case TOI16: {
-				Cast <INT16> (INT16_T, &TSData::m_I16);
+				Cast <SInt16> (INT16_T, &TSData::m_I16);
 				break;
 			}
 			case TOI32: {
-				Cast <INT32> (INT32_T, &TSData::m_I32);
+				Cast <SInt32> (INT32_T, &TSData::m_I32);
 				break;
 			}
 			case TOI64: {
-				Cast <INT64> (INT64_T, &TSData::m_I64);
+				Cast <SInt64> (INT64_T, &TSData::m_I64);
 				break;
 			}
 			case TOF32: {
-				Cast <FLOAT> (FLOAT32_T, &TSData::m_F32);
+				Cast <Dec32> (FLOAT32_T, &TSData::m_F32);
 				break;
 			}
 			case TOF64: {
-				Cast <DOUBLE> (FLOAT64_T, &TSData::m_F64);
+				Cast <Dec64> (FLOAT64_T, &TSData::m_F64);
 				break;
 			}
 			case ADD: {
