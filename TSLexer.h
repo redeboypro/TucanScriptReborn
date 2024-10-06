@@ -23,6 +23,18 @@ enum class TSTokenType : SInt32 {
 	FLOAT32,
 	FLOAT64,
 
+	STR_C,
+	CHAR_C,
+	BYTE_C,
+	UINT16_C,
+	UINT32_C,
+	UINT64_C,
+	INT16_C,
+	INT32_C,
+	INT64_C,
+	FLOAT32_C,
+	FLOAT64_C,
+
 	LPAREN,
 	RPAREN,
 
@@ -58,6 +70,7 @@ enum class TSTokenType : SInt32 {
 
 	DEF,
 	IMP,
+	REF,
 
 	SEMICOLON,
 	COMMA,
@@ -69,8 +82,8 @@ enum class TSTokenType : SInt32 {
 	CONTINUE,
 	RETURN,
 
+	VAR,
 	CALL,
-	REF,
 
 	ARRAY,
 };
@@ -106,13 +119,26 @@ static const Dictionary<String, TSTokenType> ReservedWordMap =
 	{ "from",     TSTokenType::FROM },
 	{ "break",    TSTokenType::BREAK },
 	{ "continue", TSTokenType::CONTINUE },
-	{ "return",   TSTokenType::RETURN }
+	{ "return",   TSTokenType::RETURN },
+
+	{ "uchar",    TSTokenType::BYTE_C },
+	{ "ushort",   TSTokenType::UINT16_C },
+	{ "uint",     TSTokenType::UINT32_C },
+	{ "ulong",    TSTokenType::UINT64_C },
+
+	{ "char",     TSTokenType::CHAR_C },
+	{ "short",    TSTokenType::INT16_C },
+	{ "int",      TSTokenType::INT32_C },
+	{ "long",     TSTokenType::INT64_C },
+
+	{ "float",    TSTokenType::FLOAT32_C},
+	{ "double",   TSTokenType::FLOAT64_C}
 };
 
 using TSTokenValue = std::variant<
-	String, 
-	SInt8, SInt16, SInt32, SInt64, 
-	UInt8, UInt16, UInt32, UInt64, 
+	String,
+	SInt8, SInt16, SInt32, SInt64,
+	UInt8, UInt16, UInt32, UInt64,
 	Dec32, Dec64>;
 
 struct TSToken {
@@ -120,12 +146,13 @@ struct TSToken {
 	TSTokenType  m_Type;
 };
 
+Boolean IsNumericSuffix (SInt8 source, TSTokenType& type);
+
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type);
 
 Boolean IsTokenReservedSingleChar (SInt8 source, TSTokenType& type);
 Boolean IsTokenReservedWord (const String& source, TSTokenType& type);
 
 TSTokens Tokenize (const String& source);
-TSToken ParseToken (const String& source);
 
 #endif

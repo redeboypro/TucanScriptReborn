@@ -1,6 +1,28 @@
 #include "TSLexer.h"
 
+#define IS_FLOAT_SUFIX(CHAR)  (CHAR == 'f') or (CHAR == 'F')
+#define IS_DOUBLE_SUFIX(CHAR) (CHAR == 'd') or (CHAR == 'D')
+
+Boolean IsNumericSuffix (SInt8 source, TSTokenType& type) {
+	switch (source) {
+		case 'f':
+		case 'F':
+		type = TSTokenType::FLOAT32;
+		return true;
+	}
+}
+
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type) {
+	if (const String* variantStr = std::get_if<String> (&value)) {
+		static TSTokenType givenType;
+		if (IsTokenReservedWord (*variantStr, givenType)) {
+			return TSToken {
+				.m_Value = TSTokenValue(),
+				.m_Type = givenType
+			};
+		}
+	}
+
 	return TSToken {
 		.m_Value = value,
 		.m_Type = type
@@ -21,7 +43,7 @@ TSTokens Tokenize (const String& source) {
 	auto curType  = TSTokenType::NONE;
 	auto nextType = TSTokenType::NONE;
 
-	TSTokens tokens;
+	TSTokens rawTokens;
 
 	for (UInt64 iChar = 0; iChar < source.size(); ++iChar) {
 		SInt8 curChar = source[iChar];
@@ -29,14 +51,23 @@ TSTokens Tokenize (const String& source) {
 		if (curChar == SHARP_CHAR) {
 			while (curChar != '\n' && curChar != '\r') {
 				curChar = source[++iChar];
-
 			}
 			continue;
 		}
 
+		if (tokenStr.empty ()) {
+			if (std::isdigit (curChar)) {
+				tokenStr += curChar;
+				TSTokenType numericType;
+				while () {
+
+				}
+			}
+		}
+
 		if (std::isspace (curChar)) {
 			if (!tokenStr.empty ()) {
-				tokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
+				rawTokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
 				tokenStr.clear ();
 			}
 			continue;
@@ -44,7 +75,7 @@ TSTokens Tokenize (const String& source) {
 
 		if (IsTokenReservedSingleChar (curChar, curType)) {
 			if (!tokenStr.empty ()) {
-				tokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
+				rawTokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
 				tokenStr.clear ();
 			}
 
@@ -54,38 +85,38 @@ TSTokens Tokenize (const String& source) {
 					if (nextType == TSTokenType::CPY) {
 						switch (curType) {
 							case TSTokenType::CPY:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPE)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPE)));
 							break;
 							case TSTokenType::NOT:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::NOT_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::NOT_EQ)));
 							break;
 							case TSTokenType::CMPG:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPGE)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPGE)));
 							break;
 							case TSTokenType::CMPL:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPLE)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::CMPLE)));
 							break;
 							case TSTokenType::PLUS:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::PLUS_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::PLUS_EQ)));
 							break;
 							case TSTokenType::MINUS:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::MINUS_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::MINUS_EQ)));
 							break;
 							case TSTokenType::PERCENT:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::PERCENT_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::PERCENT_EQ)));
 							break;
 							case TSTokenType::MUL:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::MUL_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::MUL_EQ)));
 							break;
 							case TSTokenType::DIV:
-							tokens.push_back (std::move (CreateToken (NULL, TSTokenType::DIV_EQ)));
+							rawTokens.push_back (std::move (CreateToken (NULL, TSTokenType::DIV_EQ)));
 							break;
 						}
 						iChar++;
 						continue;
 					}
 				}
-				tokens.push_back (std::move (CreateToken (NULL, curType)));
+				rawTokens.push_back (std::move (CreateToken (NULL, curType)));
 				continue;
 			}
 		}
@@ -112,33 +143,27 @@ TSTokens Tokenize (const String& source) {
 				}
 				strValueUnit = source[++iChar];
 			}
-			tokens.push_back (std::move (CreateToken (tokenStr, curType)));
+			rawTokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::STR)));
 		}
 
 		if (!std::iscntrl (static_cast<UInt8>(curChar))) {
 			tokenStr += curChar;
 		}
+	}
 
-		if (!tokenStr.empty ()) {
-			tokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
+	if (!tokenStr.empty ()) {
+		rawTokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
+	}
+
+	TSTokens tokens;
+	for (auto& token : rawTokens) {
+		if (token.m_Type == TSTokenType::UNDEFINED) {
+
+		}
+		else {
+
 		}
 	}
 
 	return tokens;
-}
-
-TSToken ParseToken (const String& source) {
-	Dec64 ;
-	Dec64 dec64val;
-
-	if (IsDecimal (source)) {
-		if (TryParse<Dec64> (source, dec64_v)) {
-
-		}
-	}
-	else {
-
-	}
-
-	return CreateToken (source, TSTokenType::UNDEFINED);
 }
