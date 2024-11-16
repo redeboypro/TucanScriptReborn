@@ -9,6 +9,8 @@
 #include <variant>
 #include <unordered_map>
 #include <type_traits>
+#include <stack>
+#include <deque>
 
 #define Generic template
 #define Requires requires
@@ -41,6 +43,12 @@ typedef bool Boolean;
 
 typedef std::istringstream IStrStream;
 
+Generic <Type ...T>
+using Stack = std::stack<T>;
+
+Generic <Type ...T>
+using Deque = std::deque<T>;
+
 Generic <Type KEY, Type VALUE>
 using Dictionary = std::unordered_map<KEY, VALUE>;
 
@@ -71,6 +79,14 @@ Generic <Type TYPE>
 Requires (std::is_floating_point<TYPE>::value)
 Boolean IsDecimal (const String& str, TYPE& value) {
 	return TryParse (str, value) && str.find (DOT_CHAR) != std::string::npos;
+}
+
+SInt8 First (const String& str) {
+	return str[NULL];
+}
+
+SInt8 IsDot (SInt8 sym) {
+	return sym == DOT_CHAR;
 }
 
 #endif

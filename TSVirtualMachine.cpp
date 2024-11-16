@@ -42,52 +42,52 @@ TSStack::~TSStack () {
 	delete[] m_Data;
 }
 
-void TSStack::Push (TSValue entity) {
+Undef TSStack::Push (TSValue entity) {
 	m_Data[m_End] = entity;
 	m_End++;
 }
 
-void TSStack::Push (Boolean value) {
+Undef TSStack::Push (Boolean value) {
 	Push (static_cast<SInt32>(value));
 }
 
-void TSStack::Push (SInt8 value) {
+Undef TSStack::Push (SInt8 value) {
 	Push <SInt8, CHAR_T> (value, &TSData::m_C);
 }
 
-void TSStack::Push (UInt8 value) {
+Undef TSStack::Push (UInt8 value) {
 	Push <UInt8, BYTE_T> (value, &TSData::m_UC);
 }
 
-void TSStack::Push (UInt16 value) {
+Undef TSStack::Push (UInt16 value) {
 	Push <UInt16, UINT16_T> (value, &TSData::m_U16);
 }
 
-void TSStack::Push (UInt32 value) {
+Undef TSStack::Push (UInt32 value) {
 	Push <UInt32, UINT32_T> (value, &TSData::m_U32);
 }
 
-void TSStack::Push (UInt64 value) {
+Undef TSStack::Push (UInt64 value) {
 	Push <UInt64, UINT64_T> (value, &TSData::m_U64);
 }
 
-void TSStack::Push (SInt16 value) {
+Undef TSStack::Push (SInt16 value) {
 	Push <SInt16, INT16_T> (value, &TSData::m_I16);
 }
 
-void TSStack::Push (SInt32 value) {
+Undef TSStack::Push (SInt32 value) {
 	Push <SInt32, INT32_T> (value, &TSData::m_I32);
 }
 
-void TSStack::Push (SInt64 value) {
+Undef TSStack::Push (SInt64 value) {
 	Push <SInt64, INT64_T> (value, &TSData::m_I64);
 }
 
-void TSStack::Push (Dec32 value) {
+Undef TSStack::Push (Dec32 value) {
 	Push <Dec32, FLOAT32_T> (value, &TSData::m_F32);
 }
 
-void TSStack::Push (Dec64 value) {
+Undef TSStack::Push (Dec64 value) {
 	Push <Dec64, FLOAT64_T> (value, &TSData::m_F64);
 }
 
@@ -96,8 +96,28 @@ TSValue TSStack::Pop () {
 	return m_Data[m_End];
 }
 
-TSVirtualMachine::TSVirtualMachine (UInt64 stackSize, TSBSS bss, TSASM asm_) :
-	m_Stack(stackSize), m_BSS (std::move (bss)), m_ASM (std::move (asm_)) {}
+#define FIXEDPTR(VALUE) VALUE.m_Type == FIXEDPTR_T
+TSValue TSVirtualMachine::PopUnpack () {
+	auto poppedValue = m_Stack.Pop ();
+	if (FIXEDPTR(poppedValue)) {
+		auto* extractedMemory = &m_FixedMemory.m_Memory[poppedValue.m_Data.m_I32];
+		poppedValue.m_Data = extractedMemory->m_Data;
+		poppedValue.m_Type = extractedMemory->m_Type;
+	}
+	return poppedValue;
+}
+#undef OFTYPE
+
+TSVirtualMachine::TSVirtualMachine (UInt64 stackSize, UInt64 fixedMemSize, SInt32 callDepth, TSASM asm_) :
+	m_Stack (stackSize), m_ASM (std::move (asm_)), 
+	m_JmpMemory {
+		.m_Pointers = new SInt32[callDepth],
+		.m_Depth = NULL
+	},
+	m_FixedMemory {
+		.m_Memory = new TSValue[fixedMemSize],
+		.m_Size = fixedMemSize
+	} {}
 
 TSVirtualMachine::~TSVirtualMachine () {
 	m_Allocator.FreeRoot ();
@@ -105,6 +125,14 @@ TSVirtualMachine::~TSVirtualMachine () {
 }
 
 TSAllocator::TSAllocator () : m_Begin (nullptr), m_End (nullptr) {}
+
+const TSManagedMemory& TSAllocator::Begin () {
+	return *m_Begin;
+}
+
+const TSManagedMemory& TSAllocator::End () {
+	return *m_End;
+}
 
 TSManagedMemory* TSAllocator::Alloc (TSValue* memory, UInt64 size) {
 	for (SInt32 iValue = 0; iValue < size; iValue++) {
@@ -134,7 +162,7 @@ TSManagedMemory* TSAllocator::Alloc (TSValue* memory, UInt64 size) {
 	return allocated;
 }
 
-void TSAllocator::Free (TSManagedMemory* ptr) {
+Undef TSAllocator::Free (TSManagedMemory* ptr) {
 	auto* previousPtr = ptr->m_Previous;
 	auto* nextPtr = ptr->m_Next;
 
@@ -163,13 +191,13 @@ void TSAllocator::Free (TSManagedMemory* ptr) {
 	delete ptr;
 }
 
-void TSAllocator::RemoveRef (TSManagedMemory* ptr) {
+Undef TSAllocator::RemoveRef (TSManagedMemory* ptr) {
 	if ((--ptr->m_RefCount) == NULL) {
 		Free (ptr);
 	}
 }
 
-void TSAllocator::FreeRoot () {
+Undef TSAllocator::FreeRoot () {
 
 	while (m_Begin) {
 		auto* nextPtr = m_Begin->m_Next;
@@ -178,7 +206,19 @@ void TSAllocator::FreeRoot () {
 	}
 }
 
-void TSVirtualMachine::Run (SInt32 entryPoint) {
+Undef TSVirtualMachine::Jmp (SInt32& iInst, TSInstruction& instruction) {
+	auto instructionValue = instruction.m_Value;
+	if (instructionValue.m_Type == INT32_T) {
+		iInst = instructionValue.m_Data.m_I32;
+	}
+	else {
+		LOGINSTERR ("JMP", INVALIDINSTRUCTIONTYPE);
+		Free ();
+		return;
+	}
+}
+
+Undef TSVirtualMachine::Run (SInt32 entryPoint) {
 	for (SInt32 iInst = entryPoint; iInst < m_ASM.m_Size; ++iInst) {
 		auto& instruction = m_ASM.m_Instructions[iInst];
 		switch (instruction.m_Operation) {
@@ -195,15 +235,7 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 				break;
 			}
 			case JMP: {
-				auto instructionValue = instruction.m_Value;
-				if (instructionValue.m_Type == INT32_T) {
-					iInst = instructionValue.m_Data.m_I32;
-				}
-				else {
-					LOGINSTERR ("JMP", INVALIDINSTRUCTIONTYPE);
-					Free ();
-					return;
-				}
+				Jmp (iInst, instruction);
 				break;
 			}
 			case JMPC: {
@@ -221,6 +253,15 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 					Free ();
 					return;
 				}
+				break;
+			}
+			case JMPR: {
+				m_JmpMemory.m_Pointers[m_JmpMemory.m_Depth++] = NEXT (iInst);
+				Jmp (iInst, instruction);
+				break;
+			}
+			case RETURN: {
+				iInst = m_JmpMemory.m_Pointers[--m_JmpMemory.m_Depth];
 				break;
 			}
 			case MEMALLOC: {
@@ -243,13 +284,13 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 			case MEMDEALLOC: {
 				auto poppedValue = m_Stack.Pop ();
 
-				if (poppedValue.m_Type != VAR_T) {
+				if (poppedValue.m_Type != FIXEDPTR_T) {
 					LOGINSTERR ("MEMDEALLOC", INVALIDSTACKVALUETYPE);
 					Free ();
 					return;
 				}
 
-				auto* variable = &m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+				auto* variable = &m_FixedMemory.m_Memory[poppedValue.m_Data.m_I32];
 
 				if (variable->m_Type == MANAGED_T) {
 					m_Allocator.Free (variable->m_Data.m_ManagedPtr);
@@ -263,20 +304,20 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 				auto src = m_Stack.Pop ();
 				auto dest = m_Stack.Pop ();
 
-				if (dest.m_Type != VAR_T) {
-					LOGINSTERR ("MEMSET", INVALIDSTACKVALUETYPE);
+				if (dest.m_Type != FIXEDPTR_T) {
+					LOGINSTERR ("MEMCPY", INVALIDSTACKVALUETYPE);
 					Free ();
 					return;
 				}
 
-				auto* validDestination = &m_BSS.m_Variables[dest.m_Data.m_I32];
+				auto* validDestination = &m_FixedMemory.m_Memory[dest.m_Data.m_I32];
 
 				if (validDestination->m_Type == MANAGED_T) {
 					m_Allocator.RemoveRef (validDestination->m_Data.m_ManagedPtr);
 				}
 
-				if (src.m_Type == VAR_T) {
-					auto* srcVariable = &m_BSS.m_Variables[src.m_Data.m_I32];
+				if (src.m_Type == FIXEDPTR_T) {
+					auto* srcVariable = &m_FixedMemory.m_Memory[src.m_Data.m_I32];
 					std::memcpy (validDestination, srcVariable, sizeof (TSValue));
 				}
 				else {
@@ -325,67 +366,67 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 				break;
 			}
 			case ADD: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, +);
 				break;
 			}
 			case SUB: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, -);
 				break;
 			}
 			case MUL: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, *);
 				break;
 			}
 			case DIV: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, /);
 				break;
 			}
 			case CMPE: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, ==);
 				break;
 			}
 			case CMPNE: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, !=);
 				break;
 			}
 			case CMPG: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, >);
 				break;
 			}
 			case CMPL: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, <);
 				break;
 			}
 			case CMPGE: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, >=);
 				break;
 			}
 			case CMPLE: {
-				auto a = m_Stack.Pop ();
-				auto b = m_Stack.Pop ();
+				auto a = PopUnpack ();
+				auto b = PopUnpack ();
 				APPLY_OPERATION (a, b, <=);
 				break;
 			}
 			case PRINTF: {
-				PrintF (m_Stack.Pop ());
+				PrintF (PopUnpack ());
 			}
 		}
 	}
@@ -393,6 +434,6 @@ void TSVirtualMachine::Run (SInt32 entryPoint) {
 
 void TSVirtualMachine::Free () {
 	m_Allocator.FreeRoot ();
-	delete[] m_BSS.m_Variables;
+	delete[] m_FixedMemory.m_Memory;
 	delete[] m_ASM.m_Instructions;
 }

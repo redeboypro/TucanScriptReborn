@@ -1,24 +1,118 @@
 #include "TSLexer.h"
 
-#define IS_FLOAT_SUFIX(CHAR)  (CHAR == 'f') or (CHAR == 'F')
-#define IS_DOUBLE_SUFIX(CHAR) (CHAR == 'd') or (CHAR == 'D')
+#define IS_UNSIGNED_SUFIX(CHAR) ((CHAR) == 'u' or (CHAR) == 'U')
+#define IS_LONG_SUFIX(CHAR) ((CHAR) == 'l' or (CHAR) == 'L')
+#define IS_FLOAT_SUFIX(CHAR)  ((CHAR) == 'f' or (CHAR) == 'F')
+#define IS_DOUBLE_SUFIX(CHAR) ((CHAR) == 'd' or (CHAR) == 'D')
 
-Boolean IsNumericSuffix (SInt8 source, TSTokenType& type) {
-	switch (source) {
-		case 'f':
-		case 'F':
+Boolean StartsWithDigit (const String& str) {
+	if (str.empty ()) {
+		return false;
+	}
+	return std::isdigit (First (str));
+}
+
+Undef ProcNumericSuffix (SInt8 source, TSTokenType& type) {
+	if (IS_FLOAT_SUFIX(source)) {
 		type = TSTokenType::FLOAT32;
-		return true;
+	} else if (IS_DOUBLE_SUFIX (source)) {
+		type = TSTokenType::FLOAT64;
+	} else if (IS_LONG_SUFIX (source)) {
+		if (type == TSTokenType::UINT32) {
+			type = TSTokenType::UINT64;
+		} else {
+			type = TSTokenType::INT64;
+		}
+	} else if (IS_UNSIGNED_SUFIX (source)) {
+		type = TSTokenType::UINT32;
+	}
+}
+
+SInt32 GetPrecedence (const TSTokenType& type) {
+	switch (type) {
+		//Logic
+		case TSTokenType::AND:
+		case TSTokenType::OR:
+		return 1;
+
+		//Comparison
+		case TSTokenType::CMPE:
+		case TSTokenType::CMPGE:
+		case TSTokenType::CMPLE:
+		case TSTokenType::CMPG:
+		case TSTokenType::CMPL:
+		return 2;
+
+		//Math lower priority
+		case TSTokenType::PLUS:
+		case TSTokenType::MINUS:
+		return 3;
+
+		//Math higher priority
+		case TSTokenType::MUL:
+		case TSTokenType::DIV:
+		case TSTokenType::PERCENT:
+		return 4;
+
+		//Other
+		default:
+		return 0;
 	}
 }
 
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type) {
 	if (const String* variantStr = std::get_if<String> (&value)) {
 		static TSTokenType givenType;
-		if (IsTokenReservedWord (*variantStr, givenType)) {
+		auto& tokenStr = *variantStr;
+
+		if (IsTokenReservedWord (tokenStr, givenType)) {
 			return TSToken {
 				.m_Value = TSTokenValue(),
 				.m_Type = givenType
+			};
+		}
+
+		Boolean isDecimal = false;
+		TSTokenType numericType = TSTokenType::INT32;
+		String serializedToken;
+		if (StartsWithDigit (tokenStr)) {
+			for (auto curChar : tokenStr) {
+				if (std::isdigit (curChar)) {
+					serializedToken += curChar;
+				} else if (IsDot (curChar) and !isDecimal) {
+					serializedToken += curChar;
+					numericType = TSTokenType::FLOAT64;
+					isDecimal = true;
+				} else {
+					ProcNumericSuffix (curChar, numericType);
+				}
+			}
+
+			TSTokenValue tokenValue;
+			switch (numericType) {
+				case TSTokenType::INT32: {
+					ParseAndApplyNumeric<SInt32> (tokenStr, tokenValue);
+				}
+				case TSTokenType::INT64: {
+					ParseAndApplyNumeric<SInt64> (tokenStr, tokenValue);
+				}
+				case TSTokenType::UINT32: {
+					ParseAndApplyNumeric<UInt32> (tokenStr, tokenValue);
+				}
+				case TSTokenType::UINT64: {
+					ParseAndApplyNumeric<UInt64> (tokenStr, tokenValue);
+				}
+				case TSTokenType::FLOAT32: {
+					ParseAndApplyNumeric<Dec32> (tokenStr, tokenValue);
+				}
+				case TSTokenType::FLOAT64: {
+					ParseAndApplyNumeric<Dec64> (tokenStr, tokenValue);
+				}
+			}
+
+			return TSToken {
+				.m_Value = value,
+				.m_Type = type
 			};
 		}
 	}
@@ -53,16 +147,6 @@ TSTokens Tokenize (const String& source) {
 				curChar = source[++iChar];
 			}
 			continue;
-		}
-
-		if (tokenStr.empty ()) {
-			if (std::isdigit (curChar)) {
-				tokenStr += curChar;
-				TSTokenType numericType;
-				while () {
-
-				}
-			}
 		}
 
 		if (std::isspace (curChar)) {
@@ -155,15 +239,5 @@ TSTokens Tokenize (const String& source) {
 		rawTokens.push_back (std::move (CreateToken (tokenStr, TSTokenType::UNDEFINED)));
 	}
 
-	TSTokens tokens;
-	for (auto& token : rawTokens) {
-		if (token.m_Type == TSTokenType::UNDEFINED) {
-
-		}
-		else {
-
-		}
-	}
-
-	return tokens;
+	return rawTokens;
 }

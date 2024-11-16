@@ -10,6 +10,7 @@
 #define INVALIDSTACKVALUETYPE  "Invalid popped stack value type!"
 #define LOGOUTOFBOUNDS(OBJ)    std::cerr << OBJ ": Element is out of bounds!" << std::endl
 #define LOGINSTERR(INST, ERR)  std::cerr << INST ": " ERR << std::endl
+#define NEXT(INDEX) INDEX + 1
 
 union  TSData;
 struct TSValue;
@@ -22,6 +23,8 @@ enum TSOperation : SInt8 {
 	POP,
 	JMP,
 	JMPC,		//Jump if true (Conditional jump)
+	JMPR,       //Jump with recording
+	RETURN,
 
 	MEMALLOC,
 	MEMDEALLOC,
@@ -64,7 +67,7 @@ enum TSDataType : SInt32 {
 	INT64_T,
 	FLOAT32_T,
 	FLOAT64_T,
-	VAR_T,
+	FIXEDPTR_T,
 	MANAGED_T,
 	NATIVEPTR_T
 };
@@ -107,9 +110,14 @@ struct TSASM {
 	UInt64         m_Size;
 };
 
-struct TSBSS {
-	TSValue*  m_Variables;
-	UInt64    m_Size;
+struct TSMemoryView {
+	TSValue* m_Memory;
+	SInt64   m_Size;
+};
+
+struct TSJmpMemory {
+	SInt32* m_Pointers;
+	SInt32  m_Depth;
 };
 
 class TSStack {
@@ -121,26 +129,27 @@ public:
 
 	const UInt64 m_Size;
 
-	template<typename СTYPE, TSDataType TYPE>
-	inline void Push (СTYPE value, СTYPE TSData::* field) {
-		TSValue result {};
-		result.m_Type = TYPE;
-		result.m_Data.*field = value;
+	Generic<Type СTYPE, TSDataType TYPE>
+	inline Undef Push (СTYPE value, СTYPE TSData::* field) {
+		TSValue result {
+			.m_Type = TYPE;
+			.m_Data.*field = value;
+		};
 		Push (result);
 	}
 
-	void Push (TSValue entity);
-	void Push (Boolean value);
-	void Push (SInt8 value);
-	void Push (UInt8 value);
-	void Push (UInt16 value);
-	void Push (UInt32 value);
-	void Push (UInt64 value);
-	void Push (SInt16 value);
-	void Push (SInt32 value);
-	void Push (SInt64 value);
-	void Push (Dec32 value);
-	void Push (Dec64 value);
+	Undef Push (TSValue entity);
+	Undef Push (Boolean value);
+	Undef Push (SInt8 value);
+	Undef Push (UInt8 value);
+	Undef Push (UInt16 value);
+	Undef Push (UInt32 value);
+	Undef Push (UInt64 value);
+	Undef Push (SInt16 value);
+	Undef Push (SInt32 value);
+	Undef Push (SInt64 value);
+	Undef Push (Dec32 value);
+	Undef Push (Dec64 value);
 	TSValue Pop ();
 };
 
@@ -150,17 +159,24 @@ class TSAllocator {
 public:
 	TSAllocator ();
 
+	const TSManagedMemory& Begin ();
+	const TSManagedMemory& End ();
+
 	TSManagedMemory* Alloc (TSValue* memory, UInt64 size);
-	void Free (TSManagedMemory* ptr);
-	void RemoveRef (TSManagedMemory* ptr);
-	void FreeRoot ();
+	Undef Free (TSManagedMemory* ptr);
+	Undef RemoveRef (TSManagedMemory* ptr);
+	Undef FreeRoot ();
 };
 
 class TSVirtualMachine {
-	TSStack     m_Stack;
-	TSAllocator m_Allocator;
-	TSBSS       m_BSS;
-	TSASM       m_ASM;
+	TSStack      m_Stack;
+	TSAllocator  m_Allocator;
+	TSASM        m_ASM;
+	TSMemoryView m_FixedMemory;
+	TSJmpMemory  m_JmpMemory;
+
+	TSValue PopUnpack ();
+	Undef Jmp (SInt32& iInst, TSInstruction& instruction);
 
 	Generic<Type TYPE>
 	SInt32 TryCast (TSValue& value, TYPE TSData::* sourceField) {
@@ -259,7 +275,7 @@ class TSVirtualMachine {
 	}
 
 public:
-	TSVirtualMachine (UInt64 stackSize, TSBSS bss, TSASM asm_);
+	TSVirtualMachine (UInt64 stackSize, UInt64 fixedMemSize, SInt32 callDepth, TSASM asm_);
 	~TSVirtualMachine ();
 
 	void Run (SInt32 entryPoint = 0);

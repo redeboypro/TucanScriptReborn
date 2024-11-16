@@ -2,6 +2,7 @@
 #define LEXER_H
 
 #include "TSTypes.h"
+#include <iostream>
 
 struct TSToken;
 
@@ -135,7 +136,7 @@ static const Dictionary<String, TSTokenType> ReservedWordMap =
 	{ "double",   TSTokenType::FLOAT64_C}
 };
 
-using TSTokenValue = std::variant<
+using TSTokenValue = Variant<
 	String,
 	SInt8, SInt16, SInt32, SInt64,
 	UInt8, UInt16, UInt32, UInt64,
@@ -146,7 +147,21 @@ struct TSToken {
 	TSTokenType  m_Type;
 };
 
-Boolean IsNumericSuffix (SInt8 source, TSTokenType& type);
+
+Boolean StartsWithDigit (const String& str);
+Undef ProcNumericSuffix (SInt8 source, TSTokenType& type);
+
+Generic<Type T>
+Undef ParseAndApplyNumeric (const String& tokenStr, TSTokenValue& tokenValue) {
+	T result {};
+	if (TryParse<T> (tokenStr, result)) {
+		tokenValue = result;
+	} else {
+		std::cerr << "Cannot parse not numeric token!" << std::endl;
+	}
+}
+
+SInt32 GetPrecedence (const TSTokenType& type);
 
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type);
 
