@@ -43,10 +43,10 @@ typedef bool Boolean;
 
 typedef std::istringstream IStrStream;
 
-Generic <Type ...T>
+Generic <Type T>
 using Stack = std::stack<T>;
 
-Generic <Type ...T>
+Generic <Type T>
 using Deque = std::deque<T>;
 
 Generic <Type KEY, Type VALUE>
@@ -81,11 +81,11 @@ Boolean IsDecimal (const String& str, TYPE& value) {
 	return TryParse (str, value) && str.find (DOT_CHAR) != std::string::npos;
 }
 
-SInt8 First (const String& str) {
+inline SInt8 First (const String& str) {
 	return str[NULL];
 }
 
-SInt8 IsDot (SInt8 sym) {
+inline SInt8 IsDot (SInt8 sym) {
 	return sym == DOT_CHAR;
 }
 

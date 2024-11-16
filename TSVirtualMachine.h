@@ -112,7 +112,7 @@ struct TSASM {
 
 struct TSMemoryView {
 	TSValue* m_Memory;
-	SInt64   m_Size;
+	UInt64   m_Size;
 };
 
 struct TSJmpMemory {
@@ -132,9 +132,9 @@ public:
 	Generic<Type СTYPE, TSDataType TYPE>
 	inline Undef Push (СTYPE value, СTYPE TSData::* field) {
 		TSValue result {
-			.m_Type = TYPE;
-			.m_Data.*field = value;
+			.m_Type = TYPE
 		};
+		result.m_Data.*field = value;
 		Push (result);
 	}
 
@@ -223,8 +223,8 @@ class TSVirtualMachine {
 	Generic<Type TYPE>
 	void Cast (TSDataType type, TYPE TSData::* sourceField) {
 		auto poppedValue = m_Stack.Pop ();
-		if (poppedValue.m_Type == VAR_T) {
-			auto variable = m_BSS.m_Variables[poppedValue.m_Data.m_I32];
+		if (poppedValue.m_Type == FIXEDPTR_T) {
+			auto variable = m_FixedMemory.m_Memory[poppedValue.m_Data.m_I32];
 			if (TryCast<TYPE> (variable, sourceField)) {
 				variable.m_Type = type;
 				m_Stack.Push (variable);
