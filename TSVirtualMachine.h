@@ -10,6 +10,7 @@
 #define INVALIDSTACKVALUETYPE  "Invalid popped stack value type!"
 #define LOGOUTOFBOUNDS(OBJ)    std::cerr << OBJ ": Element is out of bounds!" << std::endl
 #define LOGINSTERR(INST, ERR)  std::cerr << INST ": " ERR << std::endl
+#define PREV(INDEX) INDEX - 1
 #define NEXT(INDEX) INDEX + 1
 
 union  TSData;
@@ -22,7 +23,8 @@ enum TSOperation : SInt8 {
 	PUSH,
 	POP,
 	JMP,
-	JMPC,		//Jump if true (Conditional jump)
+	JMPC,		//Jump if false (Conditional jump)
+	JMPCV,		//Conditional jump variant
 	JMPR,       //Jump with recording
 	RETURN,
 
@@ -274,12 +276,25 @@ class TSVirtualMachine {
 		std::flush (std::cout);
 	}
 
+	inline Boolean IsTrue (const TSValue& value) {
+		return static_cast<Boolean>(value.m_Type == BYTE_T  && value.m_Data.m_UC) ||
+			                       (value.m_Type == CHAR_T  && value.m_Data.m_C)  ||
+                                   (value.m_Type == INT32_T && value.m_Data.m_I32);
+	}
+
 public:
 	TSVirtualMachine (UInt64 stackSize, UInt64 fixedMemSize, SInt32 callDepth, TSASM asm_);
 	~TSVirtualMachine ();
 
 	void Run (SInt32 entryPoint = 0);
 	void Free ();
+};
+
+constexpr TSValue TSNULL {
+	.m_Type = INT32_T,
+	.m_Data = TSData {
+		.m_I32 = NULL
+	}
 };
 
 #endif

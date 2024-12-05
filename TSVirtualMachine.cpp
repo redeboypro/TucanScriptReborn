@@ -106,7 +106,7 @@ TSValue TSVirtualMachine::PopUnpack () {
 	}
 	return poppedValue;
 }
-#undef OFTYPE
+#undef FIXEDPTR
 
 TSVirtualMachine::TSVirtualMachine (UInt64 stackSize, UInt64 fixedMemSize, SInt32 callDepth, TSASM asm_) :
 	m_Stack (stackSize), m_ASM (std::move (asm_)), 
@@ -120,8 +120,7 @@ TSVirtualMachine::TSVirtualMachine (UInt64 stackSize, UInt64 fixedMemSize, SInt3
 	} {}
 
 TSVirtualMachine::~TSVirtualMachine () {
-	m_Allocator.FreeRoot ();
-	delete[] m_ASM.m_Instructions;
+	Free ();
 }
 
 TSAllocator::TSAllocator () : m_Begin (nullptr), m_End (nullptr) {}
@@ -209,7 +208,7 @@ Undef TSAllocator::FreeRoot () {
 Undef TSVirtualMachine::Jmp (SInt32& iInst, TSInstruction& instruction) {
 	auto instructionValue = instruction.m_Value;
 	if (instructionValue.m_Type == INT32_T) {
-		iInst = instructionValue.m_Data.m_I32;
+		iInst = PREV (instructionValue.m_Data.m_I32);
 	}
 	else {
 		LOGINSTERR ("JMP", INVALIDINSTRUCTIONTYPE);
@@ -241,12 +240,22 @@ Undef TSVirtualMachine::Run (SInt32 entryPoint) {
 			case JMPC: {
 				auto instructionValue = instruction.m_Value;
 				if (instructionValue.m_Type == INT32_T) {
-					auto popped = m_Stack.Pop ();
-					if ((popped.m_Type == BYTE_T  && popped.m_Data.m_UC) ||
-						(popped.m_Type == CHAR_T  && popped.m_Data.m_C)  || 
-						(popped.m_Type == INT32_T && popped.m_Data.m_I32)) {
-						iInst = instructionValue.m_Data.m_I32;
+					if (!IsTrue (PopUnpack ())) {
+						iInst = PREV (instructionValue.m_Data.m_I32);
 					}
+				}
+				else {
+					LOGINSTERR ("JMPC", INVALIDINSTRUCTIONTYPE);
+					Free ();
+					return;
+				}
+				break;
+			}
+			case JMPCV: {
+				auto iInstTrue  = PopUnpack (); //Instruction pos if true
+				auto iInstFalse = PopUnpack (); //Instruction pos if false
+				if (iInstTrue.m_Type == INT32_T && iInstFalse.m_Type == INT32_T) {
+					iInst = PREV (IsTrue (PopUnpack ()) ? iInstTrue.m_Data.m_I32 : iInstFalse.m_Data.m_I32);
 				}
 				else {
 					LOGINSTERR ("JMPC", INVALIDINSTRUCTIONTYPE);
@@ -366,62 +375,62 @@ Undef TSVirtualMachine::Run (SInt32 entryPoint) {
 				break;
 			}
 			case ADD: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, +);
 				break;
 			}
 			case SUB: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, -);
 				break;
 			}
 			case MUL: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, *);
 				break;
 			}
 			case DIV: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, /);
 				break;
 			}
 			case CMPE: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, ==);
 				break;
 			}
 			case CMPNE: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, !=);
 				break;
 			}
 			case CMPG: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, >);
 				break;
 			}
 			case CMPL: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, <);
 				break;
 			}
 			case CMPGE: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, >=);
 				break;
 			}
 			case CMPLE: {
-				auto a = PopUnpack ();
 				auto b = PopUnpack ();
+				auto a = PopUnpack ();
 				APPLY_OPERATION (a, b, <=);
 				break;
 			}

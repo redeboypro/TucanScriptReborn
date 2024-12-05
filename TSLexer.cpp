@@ -28,38 +28,6 @@ Undef ProcNumericSuffix (SInt8 source, TSTokenType& type) {
 	}
 }
 
-SInt32 GetPrecedence (const TSTokenType& type) {
-	switch (type) {
-		//Logic
-		case TSTokenType::AND:
-		case TSTokenType::OR:
-		return 1;
-
-		//Comparison
-		case TSTokenType::CMPE:
-		case TSTokenType::CMPGE:
-		case TSTokenType::CMPLE:
-		case TSTokenType::CMPG:
-		case TSTokenType::CMPL:
-		return 2;
-
-		//Math lower priority
-		case TSTokenType::PLUS:
-		case TSTokenType::MINUS:
-		return 3;
-
-		//Math higher priority
-		case TSTokenType::MUL:
-		case TSTokenType::DIV:
-		case TSTokenType::PERCENT:
-		return 4;
-
-		//Other
-		default:
-		return 0;
-	}
-}
-
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type) {
 	if (const String* variantStr = std::get_if<String> (&value)) {
 		static TSTokenType givenType;
@@ -92,27 +60,33 @@ TSToken CreateToken (const TSTokenValue& value, const TSTokenType type) {
 			switch (numericType) {
 				case TSTokenType::INT32: {
 					ParseAndApplyNumeric<SInt32> (tokenStr, tokenValue);
+					break;
 				}
 				case TSTokenType::INT64: {
 					ParseAndApplyNumeric<SInt64> (tokenStr, tokenValue);
+					break;
 				}
 				case TSTokenType::UINT32: {
 					ParseAndApplyNumeric<UInt32> (tokenStr, tokenValue);
+					break;
 				}
 				case TSTokenType::UINT64: {
 					ParseAndApplyNumeric<UInt64> (tokenStr, tokenValue);
+					break;
 				}
 				case TSTokenType::FLOAT32: {
 					ParseAndApplyNumeric<Dec32> (tokenStr, tokenValue);
+					break;
 				}
 				case TSTokenType::FLOAT64: {
 					ParseAndApplyNumeric<Dec64> (tokenStr, tokenValue);
+					break;
 				}
 			}
 
 			return TSToken {
-				.m_Value = value,
-				.m_Type = type
+				.m_Value = tokenValue,
+				.m_Type = numericType
 			};
 		}
 	}

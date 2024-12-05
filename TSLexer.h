@@ -67,8 +67,6 @@ enum class TSTokenType : SInt32 {
 	FOR,
 	FROM,
 
-	MEMBER_REF,
-
 	DEF,
 	IMP,
 	REF,
@@ -84,8 +82,6 @@ enum class TSTokenType : SInt32 {
 	RETURN,
 
 	VAR,
-	CALL,
-
 	ARRAY,
 };
 
@@ -160,8 +156,6 @@ Undef ParseAndApplyNumeric (const String& tokenStr, TSTokenValue& tokenValue) {
 		std::cerr << "Cannot parse not numeric token!" << std::endl;
 	}
 }
-
-SInt32 GetPrecedence (const TSTokenType& type);
 
 TSToken CreateToken (const TSTokenValue& value, const TSTokenType type);
 
